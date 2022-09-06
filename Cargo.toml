@@ -1,0 +1,19 @@
+[package]
+name = "kiln"
+version = "0.1.0"
+edition = "2021"
+authors = ["Hjalte Nannestad"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytemuck = { version = "1.8", features = ["derive"] }
+clap = { version = "3.1", features = ["derive", "cargo"] }
+futures-lite = "1.12"
+glam = { version = "0.20", features = ["serde"] }
+linked-hash-map = { version = "0.5", features = ["serde_impl"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5"
+thiserror = "1.0"
+wgpu = "0.13"
+winit = "0.26"
