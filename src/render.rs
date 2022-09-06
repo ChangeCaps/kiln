@@ -5,15 +5,17 @@ pub struct Renderer {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub surface: wgpu::Surface,
+    pub window: winit::window::Window,
+    pub should_configure: bool,
 }
 
 impl Renderer {
-    pub unsafe fn new(window: &winit::window::Window) -> Self {
+    pub unsafe fn new(window: winit::window::Window) -> Self {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
 
-        let surface = unsafe { instance.create_surface(window) };
+        let surface = unsafe { instance.create_surface(&window) };
 
         let adapter_fut = instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -49,10 +51,20 @@ impl Renderer {
             queue,
             config,
             surface,
+            window,
+            should_configure: false,
         }
     }
 
-    pub fn configure(&self) {
-        self.surface.configure(&self.device, &self.config);
+    pub fn configure(&mut self) {
+        if self.should_configure {
+            self.should_configure = false;
+
+            self.surface.configure(&self.device, &self.config);
+        }
+    }
+
+    pub fn request_redraw(&self) {
+        self.window.request_redraw();
     }
 }

@@ -1,6 +1,7 @@
 struct Uniforms {
 	view: mat4x4<f32>,
 	aspect: f32,
+	time: f32,
 }
 
 @group(0) @binding(0)

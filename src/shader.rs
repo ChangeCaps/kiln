@@ -1,21 +1,26 @@
 use std::{
-    fs,
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
 use bytemuck::{Pod, Zeroable};
+
 use wgpu::ShaderModule;
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    shader_processor::ShaderProcessor,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Pod, Zeroable)]
 pub struct ShaderUniforms {
     pub view: [[f32; 4]; 4],
     pub aspect: f32,
+    pub time: f32,
 }
 
+#[derive(Debug)]
 pub struct Shader {
     pub vertex_path: Option<PathBuf>,
     pub fragment_path: PathBuf,
@@ -28,9 +33,10 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(
+        device: &wgpu::Device,
+        processor: &mut ShaderProcessor,
         vertex_path: Option<PathBuf>,
         fragment_path: PathBuf,
-        device: &wgpu::Device,
     ) -> Result<Self> {
         if !fragment_path.exists() {
             return Err(Error::InvalidPath(fragment_path));
@@ -74,7 +80,7 @@ impl Shader {
         });
 
         let (vertex_module, fragment_module) =
-            Self::load_shaders(device, vertex_path.as_deref(), &fragment_path)?;
+            Self::load_shaders(device, processor, vertex_path.as_deref(), &fragment_path)?;
         let pipeline =
             Self::create_pipeline(&vertex_module, &fragment_module, device, &pipeline_layout);
 
@@ -89,15 +95,23 @@ impl Shader {
         })
     }
 
-    pub fn update(&mut self, device: &wgpu::Device) -> Result<bool> {
-        let meta = self.fragment_path.metadata()?;
-        let modified = meta.modified()?;
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        processor: &mut ShaderProcessor,
+    ) -> Result<bool> {
+        let modified = self.fragment_path.metadata()?.modified()?;
 
         if modified > self.last_modified {
             self.last_modified = modified;
 
-            let (vertex_module, fragment_module) =
-                Self::load_shaders(device, self.vertex_path.as_deref(), &self.fragment_path)?;
+            processor.invalidate_locals();
+            let (vertex_module, fragment_module) = Self::load_shaders(
+                device,
+                processor,
+                self.vertex_path.as_deref(),
+                &self.fragment_path,
+            )?;
 
             self.pipeline = Self::create_pipeline(
                 &vertex_module,
@@ -117,27 +131,20 @@ impl Shader {
         queue.write_buffer(&self.uniforms_buffer, 0, bytes);
     }
 
-    fn create_fragment(source: String) -> String {
-        let mut out = String::new();
-
-        out += &source;
-
-        out
-    }
-
     fn load_shaders(
         device: &wgpu::Device,
+        processor: &mut ShaderProcessor,
         vertex_path: Option<&Path>,
         fragment_path: &Path,
     ) -> Result<(ShaderModule, ShaderModule)> {
-        let fragment_source = fs::read_to_string(&fragment_path)?;
+        let fragment_source = processor.process(&fragment_path)?;
         let fragment_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("kiln-shader"),
             source: wgpu::ShaderSource::Wgsl(fragment_source.into()),
         });
 
         let vertex_module = if let Some(vertex_path) = vertex_path {
-            let vertex_source = fs::read_to_string(&vertex_path)?;
+            let vertex_source = processor.process(&vertex_path)?;
 
             device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("kiln-shader"),
@@ -146,7 +153,9 @@ impl Shader {
         } else {
             device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("kiln-shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("default_vertex.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    include_str!("include/default_vertex.wgsl").into(),
+                ),
             })
         };
 

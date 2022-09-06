@@ -23,15 +23,17 @@ impl Window {
         Self::default()
     }
 
-    pub fn run(self, mut f: impl FnMut(Event<()>, &Renderer) -> bool + 'static) -> Result<()> {
+    pub fn run(self, mut f: impl FnMut(Event<()>, &mut Renderer) + 'static) -> Result<()> {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
             .with_title(self.title)
             .build(&event_loop)?;
 
-        let mut renderer = unsafe { Renderer::new(&window) };
+        let mut renderer = unsafe { Renderer::new(window) };
 
         event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+
             match event {
                 Event::WindowEvent { ref event, .. } => match event {
                     WindowEvent::CloseRequested => {
@@ -40,22 +42,19 @@ impl Window {
                     WindowEvent::Resized(new_size) => {
                         renderer.config.width = new_size.width;
                         renderer.config.height = new_size.height;
-                        renderer.configure();
+                        renderer.should_configure = true;
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         renderer.config.width = new_inner_size.width;
                         renderer.config.height = new_inner_size.height;
-                        renderer.configure();
+                        renderer.should_configure = true;
                     }
                     _ => {}
                 },
                 _ => {}
             }
 
-            if f(event, &renderer) {
-                println!("redraw");
-                window.request_redraw();
-            }
+            f(event, &mut renderer);
         });
     }
 }

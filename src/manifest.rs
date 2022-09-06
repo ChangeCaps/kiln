@@ -59,8 +59,8 @@ impl Default for ManifestCamera {
 
 impl ManifestCamera {
     pub fn view(&self) -> Mat4 {
-        let translation = Mat4::from_translation(self.position);
-        translation * Mat4::look_at_lh(Vec3::ZERO, self.direction.normalize_or_zero(), Vec3::Y)
+        let d = self.direction.normalize_or_zero();
+        Mat4::from_translation(self.position) * Mat4::look_at_rh(Vec3::ZERO, d, Vec3::Y).inverse()
     }
 }
 
