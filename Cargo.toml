@@ -6,6 +6,9 @@ authors = ["Hjalte Nannestad"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = ["kiln-lang"]
+
 [dependencies]
 bytemuck = { version = "1.8", features = ["derive"] }
 clap = { version = "3.1", features = ["derive", "cargo"] }
